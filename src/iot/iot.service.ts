@@ -1,4 +1,6 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -18,6 +20,19 @@ export class IotSerivce {
   ) {}
 
   async create(createIotDto: CreateIotDto): Promise<any> {
+    const existDeviceName = await this.findOne({
+      where: {
+        device_name: createIotDto.device_name,
+      },
+    });
+
+    if (existDeviceName) {
+      throw new HttpException(
+        'This device name already exists.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const iot = new Iot();
     iot.device_name = createIotDto.device_name;
     iot.sensor_type = createIotDto.sensor_type;
@@ -30,13 +45,32 @@ export class IotSerivce {
     return iot;
   }
 
-  async findAll(): Promise<any> {
-    return this.iotRepository.find();
+  async findAll(page: number, limit: number): Promise<any> {
+    const skip = (page - 1) * limit;
+    try {
+      const [data, total] = await this.iotRepository.findAndCount({
+        skip: skip,
+        take: limit,
+      });
+
+      const totalPages = Math.ceil(total / limit);
+
+      return new HttpException(
+        {
+          items: data,
+          total: total,
+          totalPages: totalPages,
+        },
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
+    }
   }
 
-  async findOne(id: number): Promise<any> {
+  async findOne(criteria: Record<string, any>): Promise<any> {
     try {
-      const iot = await this.iotRepository.findOneBy({ id });
+      const iot = await this.iotRepository.findOne(criteria);
       return iot;
     } catch (error) {
       throw new InternalServerErrorException(error.message);
@@ -44,6 +78,19 @@ export class IotSerivce {
   }
 
   async update(id: number, updateIotDto: Partial<UpdateIotDto>): Promise<any> {
+    const existDeviceName = await this.findOne({
+      where: {
+        device_name: updateIotDto.device_name,
+      },
+    });
+
+    if (existDeviceName && existDeviceName.id !== id) {
+      throw new HttpException(
+        'This device name already exists.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const iot = await this.iotRepository.findOneBy({ id });
     if (!iot) {
       throw new NotFoundException('Iot not found');

@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateIotDto } from './dto/update-iot.dto';
 import { CreateIotDto } from './dto/create-iot.dto';
@@ -21,13 +24,20 @@ export class IotController {
   }
 
   @Get('/all')
-  findAll() {
-    return this.iotService.findAll();
+  findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10,
+  ) {
+    return this.iotService.findAll(page, limit);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.iotService.findOne(parseInt(id));
+  findOne(@Param('id', ParseIntPipe) id: string) {
+    return this.iotService.findOne({
+      where: {
+        id: id,
+      },
+    });
   }
 
   @Patch(':id')
